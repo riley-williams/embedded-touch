@@ -1,4 +1,4 @@
-//! Common traits and types for touch screen drivers
+//! Common traits and types for touch screen drivers (and mice)
 
 #![no_std]
 
@@ -7,8 +7,8 @@ use core::fmt::Debug;
 use fixed::{traits::ToFixed, types::U17F15};
 use fixed_macro::types::{I17F15, U17F15};
 
-/// Blocking touch interface for touch screens
-pub trait TouchScreen {
+/// Blocking interface for touch devices.
+pub trait TouchInputDevice {
     /// Error type from the underlying interface
     type Error;
 
@@ -19,8 +19,8 @@ pub trait TouchScreen {
     fn touches(&mut self) -> Result<impl IntoIterator<Item = Touch>, Error<Self::Error>>;
 }
 
-/// Async touch screen interface for event-driven operation
-pub trait AsyncTouchScreen {
+/// Async interface for event-driven operation of touch devices
+pub trait AsyncTouchInputDevice {
     /// Error type from the underlying interface
     type Error;
 
@@ -69,6 +69,8 @@ pub enum Phase {
     Ended,
     /// Touch was cancelled (e.g., palm rejection triggered)
     Cancelled,
+    /// Touch is hovering above the screen without contact
+    Hovering,
 }
 
 /// Tool/instrument used for touch interaction
@@ -76,6 +78,11 @@ pub enum Phase {
 pub enum Tool {
     /// Finger or unknown tool
     Finger,
+    /// Virtual pointing device (e.g., mouse cursor)
+    Pointer {
+        /// The button pressed on the virtual pointer
+        button: PointerButton,
+    },
     /// Passive or active stylus
     Stylus {
         /// Pressure, in grams
@@ -89,6 +96,19 @@ pub enum Tool {
         /// 0 degrees points up to the top of the screen in its default orientation.
         azimuth: Option<UnitAngle>,
     },
+}
+
+/// The button state of a virtual pointer device
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PointerButton {
+    /// No button pressed, e.g., mouse hover state
+    None,
+    /// Primary mouse button, typically left
+    Primary,
+    /// Secondary mouse button, typically right
+    Secondary,
+    /// Tertiary mouse button, typically middle or wheel
+    Tertiary,
 }
 
 /// Error types for touch operations

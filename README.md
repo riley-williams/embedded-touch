@@ -1,6 +1,8 @@
 # embedded-touch
 
-A `no_std` crate providing common interfaces for touchscreen input devices.
+The primary goal of this crate is to provide a common interface for UI libraries like
+[buoyant](https://crates.io/crates/buoyant) to interact with touchscreen input device
+drivers (e.g. `FT6113`).
 
 ## Features
 
@@ -11,14 +13,14 @@ A `no_std` crate providing common interfaces for touchscreen input devices.
 
 ## Usage
 
-Implement the `TouchScreen` trait for blocking operation:
+Implement the `TouchInputDevice` trait for blocking operation:
 
 ```rust
-use embedded_touch::{TouchScreen, Touch, Error};
+use embedded_touch::{TouchInputDevice, Touch, Error};
 
 struct MyTouchDriver { /* ... */ }
 
-impl TouchScreen for MyTouchDriver {
+impl TouchInputDevice for MyTouchDriver {
     type Error = MyError;
 
     fn touches(&mut self) -> Result<impl IntoIterator<Item = Touch>, Error<Self::Error>> {
@@ -27,12 +29,12 @@ impl TouchScreen for MyTouchDriver {
 }
 ```
 
-Or implement `AsyncTouchScreen` for event-driven operation:
+Or implement `AsyncTouchInputDevice` for event-driven operation:
 
 ```rust
-use embedded_touch::{AsyncTouchScreen, Touch, Error};
+use embedded_touch::{AsyncTouchInputDevice, Touch, Error};
 
-impl AsyncTouchScreen for MyTouchDriver {
+impl AsyncTouchInputDevice for MyTouchDriver {
     type Error = MyError;
 
     async fn touches(&mut self) -> Result<impl IntoIterator<Item = Touch>, Error<Self::Error>> {
