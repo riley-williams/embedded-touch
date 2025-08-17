@@ -1,0 +1,68 @@
+name: Rust
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: Swatinem/rust-cache@v2
+      - name: Run tests
+        run: cargo test --verbose --all --all-features
+
+  clippy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy
+        run: cargo clippy --all --all-features -- -D warnings
+
+  rustfmt:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: Swatinem/rust-cache@v2
+      - name: Rustfmt
+        run: rustfmt **/*.rs --check --edition 2021
+
+  lint-markdown:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Markdown lint
+        uses: DavidAnson/markdownlint-cli2-action@v20
+        with:
+          globs: "**/*.md"
+
+  semver-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Check semver
+        uses: obi1kenobi/cargo-semver-checks-action@v2
+
+  typos:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for typos
+        uses: crate-ci/typos@v1.33.1
