@@ -1,0 +1,19 @@
+[package]
+name = "embedded-touch"
+version = "0.1.0"
+edition = "2024"
+authors = ["Riley Williams <riley@rileyw.dev>"]
+license = "MIT OR Apache-2.0"
+resolver = "2"
+description = "Provides common interfaces for touchscreen devices"
+repository = "https://github.com/riley-williams/embedded-touch"
+keywords = ["touch", "no_std", "embedded", "async"]
+
+[dependencies]
+fixed = "1.29.0"
+fixed-macro = "1.2.0"
+
+[lints.clippy]
+pedantic = { level = "deny", priority = -1 }
+missing_errors_doc = "allow"
+missing_docs = "deny"
