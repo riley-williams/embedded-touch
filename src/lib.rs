@@ -2,39 +2,18 @@
 
 #![no_std]
 
-use core::fmt::Debug;
+use core::{
+    fmt::Debug,
+    ops::{Add, AddAssign, Sub, SubAssign},
+};
 
 use fixed::{traits::ToFixed, types::U17F15};
 use fixed_macro::types::{I17F15, U17F15};
 
-/// Blocking interface for touch devices.
-pub trait TouchInputDevice {
-    /// Error type from the underlying interface
-    type Error;
-
-    /// Read current touch points, blocking until data is available
-    ///
-    /// Returns an iterator of touch points currently detected.
-    /// Drivers must track touch IDs across calls to maintain correct phase information.
-    fn touches(&mut self) -> Result<impl IntoIterator<Item = Touch>, Error<Self::Error>>;
-}
-
-/// Async interface for event-driven operation of touch devices
-pub trait AsyncTouchInputDevice {
-    /// Error type from the underlying interface
-    type Error;
-
-    /// Asynchronously wait until touch points are available
-    ///
-    /// Returns an iterator of touch points currently detected.
-    /// Drivers must track touch IDs across calls to maintain correct phase information.
-    fn touches(
-        &mut self,
-    ) -> impl Future<Output = Result<impl IntoIterator<Item = Touch>, Error<Self::Error>>>;
-}
+pub mod traits;
 
 /// Represents a single touch point on the screen
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Touch {
     /// Unique ID for tracking this touch point across frames
     ///
@@ -42,24 +21,31 @@ pub struct Touch {
     /// but can be reused for new touches after sending [`Phase::Ended`] or [`Phase::Cancelled`]
     pub id: u8,
 
-    /// X coordinate in screen pixels
-    pub x: u16,
-
-    /// Y coordinate in screen pixels
-    pub y: u16,
+    /// Coordinates of the interaction in units of screen pixels
+    pub location: TouchPoint,
 
     /// Current phase of this touch interaction
     pub phase: Phase,
 
     /// The tool used for this touch point
     pub tool: Tool,
+}
 
-    /// Optional proximity distance (implementation-specific units)
-    pub proximity: Option<u16>,
+impl Touch {
+    /// Create a new touch point
+    #[must_use]
+    pub fn new(id: u8, location: TouchPoint, phase: Phase, tool: Tool) -> Self {
+        Self {
+            id,
+            location,
+            phase,
+            tool,
+        }
+    }
 }
 
 /// Phase of a touch interaction
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Phase {
     /// Touch just started
     Started,
@@ -69,12 +55,13 @@ pub enum Phase {
     Ended,
     /// Touch was cancelled (e.g., palm rejection triggered)
     Cancelled,
-    /// Touch is hovering above the screen without contact
-    Hovering,
+    /// Touch is hovering above the screen without contact, with an optional
+    /// proximity (implementation-specific units)
+    Hovering(Option<u16>),
 }
 
 /// Tool/instrument used for touch interaction
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Tool {
     /// Finger or unknown tool
     Finger,
@@ -99,7 +86,7 @@ pub enum Tool {
 }
 
 /// The button state of a virtual pointer device
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PointerButton {
     /// No button pressed, e.g., mouse hover state
     None,
@@ -111,27 +98,10 @@ pub enum PointerButton {
     Tertiary,
 }
 
-/// Error types for touch operations
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Error<E> {
-    /// I2C/SPI communication error
-    Interface(E),
-    /// Data corruption detected (e.g., checksum failure)
-    DataCorruption,
-    /// Device not responding or not initialized
-    DeviceError,
-}
-
-impl<E> From<E> for Error<E> {
-    fn from(error: E) -> Self {
-        Error::Interface(error)
-    }
-}
-
 /// An angle in the range [0, 2π) radians
 ///
 /// The angle is stored as a [`fixed::types::U1F15`]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct UnitAngle(fixed::types::U1F15);
 
 impl UnitAngle {
@@ -170,18 +140,84 @@ impl UnitAngle {
     ///
     /// This method does not result in loss of precision from the original value.
     #[must_use]
+    #[inline]
     pub fn as_pi_radians(&self) -> fixed::types::U1F15 {
         self.0
     }
 
     #[must_use]
+    #[inline]
     pub fn as_radians_f32(&self) -> f32 {
         (self.0.to_fixed::<U17F15>() * U17F15!(3.14159265359)).to_num::<f32>()
     }
 
     #[must_use]
+    #[inline]
     pub fn as_degrees_f32(&self) -> f32 {
         (self.0.to_fixed::<U17F15>() * U17F15!(180.0)).to_num::<f32>()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct TouchPoint {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl TouchPoint {
+    /// Create a new touch point
+    #[must_use]
+    pub fn new(x: impl Into<i32>, y: impl Into<i32>) -> Self {
+        Self {
+            x: x.into(),
+            y: y.into(),
+        }
+    }
+}
+
+impl Add for TouchPoint {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        TouchPoint {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+impl AddAssign for TouchPoint {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
+impl Sub for TouchPoint {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        TouchPoint {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
+impl SubAssign for TouchPoint {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
+impl core::ops::Neg for TouchPoint {
+    type Output = Self;
+    fn neg(self) -> Self {
+        Self {
+            x: -self.x,
+            y: -self.y,
+        }
     }
 }
 
